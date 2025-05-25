@@ -22,7 +22,11 @@ pub const Client = struct {
 
     pub fn deinit(self: *Self) void {
         self.mutex.lock();
-        defer self.mutex.unlock();
+
+        defer {
+						self.mutex.unlock();
+						self.allocator.destroy(self);
+				}
 
         var iter = self.tables.iterator();
         while (iter.next()) |entry| {
@@ -32,7 +36,6 @@ pub const Client = struct {
         }
 
         self.tables.deinit();
-        self.allocator.destroy(self);
     }
 
     pub fn createTypedTable(self: *Self, comptime T: type, options: TableOptions) !*Table(T) {
@@ -46,16 +49,6 @@ pub const Client = struct {
     }
 
     pub fn createTable(self: Self, options: TableOptions) Table[anyopaque] {
-        self.mutex.lock();
-        defer self.mutex.unlock();
-
-        const table = try self.allocator.create(Table);
-        table.* = Table(anyopaque).init(self.allocator, options);
-
-        try self.tables.put(options.name, @ptrCast(table));
-        
-        std.debug.print("Creating table");
-
-        return table;
+        return createTypedTable(anyopaque, options);
     }
 };
